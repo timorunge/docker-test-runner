@@ -1,0 +1,58 @@
+---
+
+# Build arguments (referenced also in the Dockerfiles)
+docker_image_build_args:
+  ansible_role: timorunge.docker_test_runner
+  ansible_version: 2.6.2
+
+# Path to the directory containing the Dockerfile(s)
+# `__PATH__` is the directory where `docker_test_runner.py` is stored.
+# docker_test_runner will automatically replace `__PATH__` with the
+# current working directory.
+docker_image_path: __PATH__/docker
+
+# Images names for the build context of the Dockerfile(s)
+# Images must be stored in the `docker_image_path` folder.
+# Images must be named in the following format: Dockerfile_`image_name`.
+docker_images:
+  - CentOS_7
+  - Debian_9_4
+  - Debian_10
+  - Ubuntu_16_04
+  - Ubuntu_17_10
+  - Ubuntu_18_04
+  - Ubuntu_18_10
+
+# Environment variables to set inside the container.
+# Each environment will run in a separate container.
+docker_container_environments:
+  env_1:
+    injected_dict: { "foo": "bar" }
+    injected_list: [ "foo", "bar" ]
+    injected_variable: "foo_bar"
+    override_variable: "FOO_BAR"
+  env_2:
+    injected_dict: { "alice": "bob" }
+    injected_list: [ "alice", "bob" ]
+    injected_variable: "alice_bob"
+    override_variable: "ALICE_BOB"
+  env_3:
+    injected_dict: { "x": "y" }
+    injected_list: [ "x", "y" ]
+    injected_variable: "x_y"
+    override_variable: "X_Y"
+
+# Configure volumes mounted inside the container.
+# `__PATH__` is the directory where `docker_test_runner.py` is stored.
+# docker_test_runner will automatically replace `__PATH__` with the
+# current working directory.
+docker_container_volumes:
+  "__PATH__/ansible":
+    bind: /etc/ansible/roles/timorunge.docker_test_runner
+    mode: ro
+  "__PATH__/ansible/tests":
+    bind: /ansible
+    mode: rw
+  "__PATH__/docker":
+    bind: /docker
+    mode: ro

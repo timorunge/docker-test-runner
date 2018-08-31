@@ -1,0 +1,11 @@
+---
+
+- hosts: localhost
+  remote_user: root
+  gather_facts: true
+
+  vars:
+    override_variable: ORIGINAL VALUE
+
+  roles:
+    - timorunge.docker_test_runner

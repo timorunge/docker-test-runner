@@ -1,0 +1,15 @@
+---
+
+- debug:
+    msg: "injected_dict: Key: {{ item.key }}, Value: {{ item.value }}"
+  with_dict: "{{ injected_dict }}"
+
+- debug:
+    msg: "injected_list: Item: {{ item }}"
+  with_items: "{{ injected_list }}"
+
+- debug:
+    msg: "injected_variable: {{ injected_variable }}"
+
+- debug:
+    msg: "override_variable: {{ override_variable }}"

@@ -1,0 +1,27 @@
+---
+
+galaxy_info:
+  author: Timo Runge
+  description: Simple Ansible role which shows what is possible with docker-test-runner.
+  role_name: docker_test_runner
+  license: BSD
+  min_ansible_version: 2.4.0
+  platforms:
+  - name: EL
+    versions:
+      - 7
+  - name: Debian
+    versions:
+      - stretch
+      - buster
+  - name: Ubuntu
+    versions:
+      - trusty
+      - xenial
+      - artful
+      - bionic
+      - cosmic
+  galaxy_tags:
+    - test
+
+dependencies: []
