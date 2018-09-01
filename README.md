@@ -8,8 +8,8 @@ environment settings.
 Of course you can do the same with Docker or Docker-Compose but it was somehow
 to complicate to archive the following goals easily:
 
-- Run mutliple containers from one image
-- Run mutliple containers at the same time (without docker-compose) - with
+- Run multiple containers from one image
+- Run multiple containers at the same time (without docker-compose) - with
   different environment settings
 - On the fly (thread) limits for build processes or containers runs
   (possible via `COMPOSE_PARALLEL_LIMIT` in docker-compose)
@@ -54,7 +54,7 @@ the entire workflow.
 # Build arguments (referenced also in the Dockerfiles)
 docker_image_build_args:
   ansible_role: timorunge.docker_test_runner
-  ansible_version: 2.6.2
+  ansible_version: 2.6.3
 
 # Path to the directory containing the Dockerfile(s)
 # `__PATH__` is the directory where `docker_test_runner.py` is stored.
