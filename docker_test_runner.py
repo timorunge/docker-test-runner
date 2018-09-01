@@ -211,12 +211,12 @@ class DockerContainers(object):
     def run(self):
         """ Run the containers """
         threads = []
-        for docker_container, docker_container__configuration in self.containers.iteritems():
+        for docker_container, docker_container_configuration in self.containers.iteritems():
             run_docker_container = _RunDockerContainer(
                 self.semaphore, \
                 self.queue, \
                 docker_container, \
-                docker_container__configuration
+                docker_container_configuration
                 )
             run_docker_container.start()
             threads.append(run_docker_container)
@@ -283,7 +283,6 @@ class _RunDockerContainer(Thread):
         self.name = name
         self.queue = queue
         self.semaphore = semaphore
-        self.start_time = time()
 
     def run(self):
         self.semaphore.acquire()
@@ -294,6 +293,7 @@ class _RunDockerContainer(Thread):
             self.semaphore.release()
 
     def _run_container(self):
+        start_time = time()
         try:
             _logger().info("Starting container %s...", self.name)
             container = _docker_client().containers.run(
@@ -311,12 +311,12 @@ class _RunDockerContainer(Thread):
             self.container["exit_code"] = int(container.wait()["StatusCode"])
             if self.container["exit_code"] == 0:
                 log_message = "Container {} run succeeded. [Duration: {}]" \
-                    .format(self.name, Time(self.start_time).delta_in_hms())
+                    .format(self.name, Time(start_time).delta_in_hms())
                 _logger().info(log_message)
                 self.container["messages"].append(log_message)
             else:
                 log_message = "Container {} run failed. [Duration: {}]" \
-                    .format(self.name, Time(self.start_time).delta_in_hms())
+                    .format(self.name, Time(start_time).delta_in_hms())
                 _logger().error(log_message)
                 self.container["exit_code"] = 1
                 self.container["messages"].append(log_message)
@@ -326,7 +326,7 @@ class _RunDockerContainer(Thread):
                 docker.errors.APIError
             ) as error:
             log_message = "Container {} run failed. [Duration: {}]" \
-                .format(self.name, Time(self.start_time).delta_in_hms())
+                .format(self.name, Time(start_time).delta_in_hms())
             _logger().error(log_message)
             self.container["exit_code"] = 1
             self.container["messages"].append(log_message)
@@ -381,7 +381,6 @@ class _BuildDockerImage(Thread):
         self.name = name
         self.queue = queue
         self.semaphore = semaphore
-        self.start_time = time()
 
     def run(self):
         self.semaphore.acquire()
@@ -392,6 +391,7 @@ class _BuildDockerImage(Thread):
             self.semaphore.release()
 
     def _build(self):
+        start_time = time()
         _logger().debug("Starting image build process.")
         dockerfile = "%s/Dockerfile_%s" % (self.config["docker_image_path"], self.name)
         self.image[self.name] = dict({})
@@ -414,7 +414,7 @@ class _BuildDockerImage(Thread):
             _logger().debug("ID of image %s: %s", self.name, image.short_id)
             self.image[self.name]["image"] = image.short_id
             log_message = "{} image created. [Duration: {}]" \
-                .format(self.name, Time(self.start_time).delta_in_hms())
+                .format(self.name, Time(start_time).delta_in_hms())
             _logger().info(log_message)
             self.image[self.name]["exit_code"] = 0
             self.image[self.name]["messages"].append(log_message)
@@ -424,7 +424,7 @@ class _BuildDockerImage(Thread):
                 TypeError
             ) as error:
             log_message = "Build image {} failed. [Duration: {}]" \
-                .format(self.name, Time(self.start_time).delta_in_hms())
+                .format(self.name, Time(start_time).delta_in_hms())
             _logger().error(log_message)
             self.image[self.name]["exit_code"] = 1
             self.image[self.name]["messages"].append(log_message)
@@ -470,62 +470,65 @@ def _semaphore(value=2):
         raise error
 
 
-def _run(start_time, args):
+def _run(args):
     """ Run the Docker test runner """
+    _exit_code = [0]
+    _expected = dict({})
+    _start_time = time()
+    _sucessfull = dict({})
     _logger(args.log_level, args.disable_logging)
     semaphore, threads = _semaphore(args.threads)
-    __config = Configuration(args.config_file)
+    _config = Configuration(args.config_file)
     if os.environ.has_key("TRAVIS"):
-        __config.add("docker_image_build_args", "TRAVIS", os.environ.get("TRAVIS"))
-    os.environ.update(__config.get_section("docker_image_build_args"))
-    config = __config.get_all()
-    __expected_docker_images = len(config["docker_images"])
+        _config.add("docker_image_build_args", "TRAVIS", os.environ.get("TRAVIS"))
+    os.environ.update(_config.get_section("docker_image_build_args"))
+    config = _config.get_all()
+    _expected["docker_images"] = len(config["docker_images"])
     _logger().info("%s Threads", threads)
-    _logger().info("%s expected images", __expected_docker_images)
+    _logger().info("%s expected images", _expected["docker_images"])
     if not args.build_only:
-        __docker_envs = len(config["docker_container_environments"])
-        __expected_docker_container_runs = __docker_envs * __expected_docker_images
-        _logger().info("%s environments", __docker_envs)
-        _logger().info("%s expected container runs", __expected_docker_container_runs)
-    __docker_images = DockerImages(semaphore, config)
-    __docker_images.run()
-    docker_images = __docker_images.get_all()
+        _docker_envs = len(config["docker_container_environments"])
+        _expected["docker_container_runs"] = _docker_envs * _expected["docker_images"]
+        _logger().info("%s environments", _docker_envs)
+        _logger().info("%s expected container runs", _expected["docker_container_runs"])
+    _docker_images = DockerImages(semaphore, config)
+    _docker_images.run()
+    docker_images = _docker_images.get_all()
     if not args.build_only:
-        __docker_containers = DockerContainers(semaphore, config, docker_images)
-        __docker_containers.run()
-        docker_containers = __docker_containers.get_all()
+        _docker_containers = DockerContainers(semaphore, config, docker_images)
+        _docker_containers.run()
+        docker_containers = _docker_containers.get_all()
     _logger().info("Summary:")
-    exit_code = [0]
-    sucessfull_image_runs = 0
-    sucessfull_container_runs = 0
+    _sucessfull["image_runs"] = 0
+    _sucessfull["container_runs"] = 0
     for items in docker_images.itervalues():
         if items["exit_code"] == 0:
-            sucessfull_image_runs += 1
-        exit_code.append(items["exit_code"])
+            _sucessfull["image_runs"] += 1
+        _exit_code.append(items["exit_code"])
         for message in items["messages"]:
             _logger().info(message)
     if not args.build_only:
         for items in docker_containers.itervalues():
             if items["exit_code"] == 0:
-                sucessfull_container_runs += 1
-            exit_code.append(items["exit_code"])
+                _sucessfull["container_runs"] += 1
+            _exit_code.append(items["exit_code"])
             for message in items["messages"]:
                 _logger().info(message)
     _logger().info("Threads: %s", threads)
-    _logger().info("Images: %s/%s", sucessfull_image_runs, __expected_docker_images)
+    _logger().info("Images: %s/%s", _sucessfull["image_runs"], _expected["docker_images"])
     if not args.build_only:
         _logger().info(
             "Containers: %s/%s",
-            sucessfull_container_runs,
-            __expected_docker_container_runs
+            _sucessfull["container_runs"],
+            _expected["docker_container_runs"]
             )
-    _logger().info("Total duration: %s", Time(start_time).delta_in_hms())
-    exit(sum(exit_code))
+    _logger().info("Total duration: %s", Time(_start_time).delta_in_hms())
+    exit_code = sum(_exit_code)
+    exit(exit_code)
 
 
 def main():
     """ Build Docker images and run containers in different environments. """
-    start_time = time()
     parser = ArgumentParser(
         description="Build Docker images and run containers in different environments.", \
         formatter_class=RawTextHelpFormatter
@@ -575,7 +578,7 @@ def main():
     if args.version:
         print(__version__)
         exit(0)
-    _run(start_time, args)
+    _run(args)
 
 
 if __name__ == "__main__":
