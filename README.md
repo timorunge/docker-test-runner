@@ -19,7 +19,8 @@ to complicate to archive the following goals easily:
 Requirements
 ------------
 
-This role requires Python 2.7 and some additional pip packages.
+This role requires [Docker](https://www.docker.com), Python 2.7 and some
+additional pip packages.
 
 The required pip packages are defined in the
 [requirements.txt](requirements.txt) file and can be installed easily via
@@ -76,6 +77,8 @@ docker_images:
 
 # Environment variables to set inside the container.
 # Each environment will run in a separate container.
+# You have the possiblity to skip container runs based on an environment.
+# Simply use the option `skip_images` as a list inside the environment itself.
 docker_container_environments:
   env_1:
     injected_dict: { "foo": "bar" }
@@ -87,6 +90,9 @@ docker_container_environments:
     injected_list: [ "alice", "bob" ]
     injected_variable: "alice_bob"
     override_variable: "ALICE_BOB"
+    skip_images:
+      - Debian_10
+      - Ubuntu_18_10
   env_3:
     injected_dict: { "x": "y" }
     injected_list: [ "x", "y" ]
@@ -139,8 +145,8 @@ Testing
 
 [![Build Status](https://travis-ci.org/timorunge/docker-test-runner.svg?branch=master)](https://travis-ci.org/timorunge/docker-test-runner)
 
-Tests are done with [Docker](https://www.docker.com) and
-the `docker_test_runner` itself.
+Tests are done with [Docker](https://www.docker.com) and the
+`docker_test_runner` itself.
 
 The tests are creating the following Docker images:
 

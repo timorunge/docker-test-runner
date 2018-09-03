@@ -16,5 +16,5 @@ install:
   - pip install -r requirements.txt
 
 script:
-  - pylint docker_test_runner.py
+  - pylint --exit-zero docker_test_runner.py
   - ./docker_test_runner.py -f docker_test_runner.yml -t 3
