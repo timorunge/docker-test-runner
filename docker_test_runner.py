@@ -247,7 +247,7 @@ class DockerContainers(object):
         """ Create the container run configuration """
         self.containers = dict({})
         for image in self.images.iterkeys(): # pylint: disable=R1702
-            if self.config.has_key("docker_container_environments"):
+            if bool(self.config["docker_container_environments"]):
                 _logger().debug("Create environment based container information.")
                 for env, env_settings in self.config["docker_container_environments"].iteritems():
                     skip = False
@@ -282,6 +282,7 @@ class DockerContainers(object):
                         )
                     )
                 self.containers[name] = dict({})
+                self.containers[name]["environment"] = dict({})
                 self.containers[name]["image"] = self.images[image]["image"]
                 self.containers[name]["messages"] = list([])
                 if self.config.has_key("docker_container_volumes"):
@@ -520,18 +521,23 @@ def _run(args): # pylint: disable=R0912,R0914
     _logger().info("%s Threads", threads)
     _logger().info("%s expected images", _expected["docker_images"])
     if not args.build_only: #pylint: disable=R1702
-        _docker_envs = len(config["docker_container_environments"])
-        _skip = 0
-        for _docker_image in config["docker_images"]:
-            for _docker_env, _docker_env_settings in \
-                config["docker_container_environments"].iteritems():
-                if _docker_env_settings.has_key("skip_images"):
-                    for _skip_image in _docker_env_settings["skip_images"]:
-                        if _docker_image == _skip_image:
-                            _skip += 1
-        _expected["docker_container_runs"] = (_docker_envs * _expected["docker_images"]) - _skip
-        _logger().info("%s environments", _docker_envs)
-        _logger().info("%s expected container runs", _expected["docker_container_runs"])
+        if bool(config["docker_container_environments"]):
+            _docker_envs = len(config["docker_container_environments"])
+            _skip = 0
+            for _docker_image in config["docker_images"]:
+                for _docker_env, _docker_env_settings in \
+                    config["docker_container_environments"].iteritems():
+                    if _docker_env_settings.has_key("skip_images"):
+                        for _skip_image in _docker_env_settings["skip_images"]:
+                            if _docker_image == _skip_image:
+                                _skip += 1
+            _expected["docker_container_runs"] = (_docker_envs * _expected["docker_images"]) - _skip
+            _logger().info("%s environments", _docker_envs)
+            _logger().info("%s expected container runs", _expected["docker_container_runs"])
+        else:
+            _expected["docker_container_runs"] = _expected["docker_images"]
+            _logger().info("%s environments", "0")
+            _logger().info("%s expected container runs", _expected["docker_container_runs"])
     _docker_images = DockerImages(semaphore, config)
     _docker_images.run()
     docker_images = _docker_images.get_all()
