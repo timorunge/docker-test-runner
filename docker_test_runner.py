@@ -106,7 +106,7 @@ class SearchAndReplace(object):
             for key, value in obj.items():
                 if isinstance(value, dict):
                     obj[key] = self.in_dict(value)
-                if self.search in value:
+                if isinstance(value, str) and self.search in value:
                     obj[key] = string.replace(value, self.search, self.replace)
             return obj
         else:
@@ -143,6 +143,9 @@ class Time(object):
 class Configuration(object):
     """ Get and set the configuration for the Docker Test Runner """
 
+    # @TODO: Logging is not working for the Configuration since it's initialised
+    #        before the logger.
+
     def __init__(self, config_file):
         self.config = dict({})
         self.config_file = config_file
@@ -176,30 +179,28 @@ class Configuration(object):
 
     def _from_file(self):
         try:
-            _logger().debug("Reading configuration file: %s", self.config_file)
             with open("%s" % (self.config_file), "r") as config_file:
-                _logger().debug("Replacing __PATH__ with \"%s\" in configuration file.", self.path)
                 self.config = SearchAndReplace("__PATH__", self.path).in_dict(load(config_file))
         except IOError as error:
-            _logger().exception("Error while reading configuration file.")
             raise error
 
     def _validate(self):
-        _logger().debug("Validating configuration file.")
-        required_keys = ["docker_image_build_args", "docker_image_path", "docker_images"]
-        optional_keys = ["docker_container_environments", "docker_container_volumes"]
-        _logger().debug("Checking for required configuration keys.")
-        for required_key in required_keys:
+        required_config = ["docker_image_build_args", "docker_image_path", "docker_images"]
+        optional_config = {
+            "disable_logging": False,
+            "docker_container_environments": dict({}),
+            "docker_container_volumes": dict({}),
+            "log_level": "INFO",
+            "threads": 2
+            }
+        for required_key in required_config:
             if not self.config.has_key(required_key):
                 message = "Required configuration key \"%s\" is missing." % (required_key)
                 _logger().exception(message)
                 raise Exception(message)
-        _logger().debug("Checking for optional configuration keys.")
-        for optional_key in optional_keys:
-            if not self.config.has_key(optional_key):
-                _logger().debug("Optional configuration key \"%s\" is missing.", optional_key)
-                _logger().debug("Adding empty dict for \"%s\".", optional_key)
-                self.add_section(optional_key, dict({}))
+        for optional_config_key, optional_config_value in optional_config.iteritems():
+            if not self.config.has_key(optional_config_key):
+                self.add_section(optional_config_key, optional_config_value)
 
 
 class DockerContainers(object):
@@ -474,35 +475,35 @@ def _docker_client():
         raise error
 
 
-def _logger(log_level="INFO", disable=False):
+def _logger(log_level="INFO", disable_logging=False):
     """ Set up the logger """
     try:
         log_level = logging.getLevelName(log_level)
         log_format = "%(log_color)s[%(levelname)s] %(threadName)s:%(reset)s %(message)s"
         colorlog.basicConfig(level=log_level, format=log_format)
         logger = colorlog.getLogger(__name__)
-        if disable:
-            # @TODO: Fix message: No handlers could be found for logger "__main__"
+        if disable_logging:
+            # @TODO: Fix message: No handlers could be found for logger "__main__" when logging
+            #        is disabled.
             logger.propagate = False
         return logger
     except Exception as error:
-        _logger().exception("Can not set log level: %s is not valid.", log_level)
         raise error
 
 
-def _semaphore(value=2):
+def _semaphore(threads=2):
     """ Set thread limits """
     try:
-        _logger().debug("Setting thread limit to: %s", value)
-        value = int(value)
-        semaphore = BoundedSemaphore(value)
-        return semaphore, value
+        _logger().debug("Setting thread limit to: %s", threads)
+        threads = int(threads)
+        semaphore = BoundedSemaphore(threads)
+        return semaphore, threads
     except ValueError as error:
-        _logger().exception("Can not set thread limit: %s is not an integer.", value)
+        _logger().exception("Can not set thread limit: %s is not an integer.", threads)
         raise error
 
 
-def _run(args): # pylint: disable=R0912,R0914
+def _run(args): # pylint: disable=R0912,R0914,R0915
     """ Run the Docker test runner """
     _exit_code = [0]
     _expected = dict({})
@@ -510,13 +511,31 @@ def _run(args): # pylint: disable=R0912,R0914
     _sucessfull = dict({})
     _sucessfull["container_runs"] = 0
     _sucessfull["image_runs"] = 0
-    _logger(args.log_level, args.disable_logging)
     _config = Configuration(args.config_file)
     if os.environ.has_key("TRAVIS"):
         _config.add("docker_image_build_args", "TRAVIS", os.environ.get("TRAVIS"))
     os.environ.update(_config.get_section("docker_image_build_args"))
     config = _config.get_all()
-    semaphore, threads = _semaphore(args.threads)
+    if args.disable_logging:
+        _disable_logging = args.disable_logging
+    elif config["disable_logging"]:
+        _disable_logging = config["disable_logging"]
+    else:
+        _disable_logging = False
+    if args.log_level:
+        _log_level = args.log_level
+    elif config["log_level"]:
+        _log_level = config["log_level"]
+    else:
+        _log_level = "INFO"
+    if args.threads:
+        _threads = args.threads
+    elif config["threads"]:
+        _threads = config["threads"]
+    else:
+        _threads = 2
+    _logger(_log_level, _disable_logging)
+    semaphore, threads = _semaphore(_threads)
     _expected["docker_images"] = len(config["docker_images"])
     _logger().info("%s Threads", threads)
     _logger().info("%s expected images", _expected["docker_images"])
@@ -589,7 +608,6 @@ def main():
     parser.add_argument(
         "-t", \
         "--threads", \
-        default=2, \
         dest="threads", \
         help="The amount of threads to use.\n(default: 2)"
         )
@@ -601,14 +619,12 @@ def main():
         )
     parser.add_argument(
         "--log-level", \
-        default="INFO", \
         dest="log_level", \
         help="Set log level.\nValid: CRITICAL, DEBUG, ERROR, INFO, NOTSET, WARNING\n(default: INFO)"
         )
     parser.add_argument(
         "--disable-logging", \
         action="store_true", \
-        default=False, \
         dest="disable_logging", \
         help="Completely disable logging."
         )
