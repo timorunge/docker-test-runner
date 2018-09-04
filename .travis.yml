@@ -17,4 +17,4 @@ install:
 
 script:
   - pylint --exit-zero docker_test_runner.py
-  - ./docker_test_runner.py -f docker_test_runner.yml -t 3
+  - ./docker_test_runner.py -f docker_test_runner.yml

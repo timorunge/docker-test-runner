@@ -52,10 +52,23 @@ In the [testing section](#testing) you can find some explenation about
 the entire workflow.
 
 ```yaml
+# The amount of threads to use.
+# Can be overridden by the command line.
+threads: 4
+
+# Set log level.
+# Valid: CRITICAL, DEBUG, ERROR, INFO, NOTSET, WARNING
+# Can be overridden by the command line.
+log_level: INFO
+
+# Completely disable logging.
+# Can be overridden by the command line.
+disable_logging: False
+
 # Build arguments (referenced also in the Dockerfiles)
 docker_image_build_args:
   ansible_role: timorunge.docker_test_runner
-  ansible_version: 2.6.3
+  ansible_version: "2.6.3"
 
 # Path to the directory containing the Dockerfile(s)
 # `__PATH__` is the directory where `docker_test_runner.py` is stored.

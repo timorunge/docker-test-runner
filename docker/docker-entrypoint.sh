@@ -3,7 +3,8 @@ set -e
 
 test -z ${override_variable} && echo "Missing environment variable: override_variable" && exit 1
 
-printf "[defaults]\nroles_path=/etc/ansible/roles\ngather_timeout=60" > ansible.cfg
+printf "[defaults]\nroles_path=/etc/ansible/roles\n" > ansible.cfg
+
 ansible-lint /ansible/test.yml
 ansible-lint /etc/ansible/roles/${ansible_role}/tasks/main.yml
 
