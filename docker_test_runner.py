@@ -45,7 +45,7 @@ __email__ = "me@timorunge.com"
 __license__ = "BSD"
 __maintainer__ = "Timo Runge"
 __title__ = "docker_test_runner"
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 
 LOG = colorlog.getLogger(__name__)
@@ -482,10 +482,10 @@ def _run(args): # pylint: disable=R0912,R0914,R0915
     def _config(config_file):
         """ Make me nice one day... """
         _config = Configuration(config_file)
-        _config = _config.get()
         if os.environ.has_key("TRAVIS"):
             _config.add("TRAVIS", os.environ.get("TRAVIS"), "docker_image_build_args")
-        os.environ.update(_config.get("docker_image_build_args"))
+        _config = _config.get()
+        os.environ.update(_config["docker_image_build_args"])
         if args.disable_logging:
             _disable_logging = args.disable_logging
         elif _config["disable_logging"]:
