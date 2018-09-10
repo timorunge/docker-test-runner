@@ -40,12 +40,15 @@ import docker
 
 
 __author__ = "Timo Runge"
-__copyright__ = "Copyright 2018, Timo runge"
+__copyright__ = "Copyright 2018, Timo Runge"
 __email__ = "me@timorunge.com"
 __license__ = "BSD"
 __maintainer__ = "Timo Runge"
-__title__ = 'docker_test_runner'
-__version__ = "0.0.1"
+__title__ = "docker_test_runner"
+__version__ = "0.0.2"
+
+
+LOG = colorlog.getLogger(__name__)
 
 
 # Generic classes
@@ -55,36 +58,36 @@ class Color(object):
     """ Generate color codes, print them directly or get the message string """
 
     def __init__(self):
-        self.colors = {
-            "blue": "4",
-            "cyan": "6",
-            "green": "2",
-            "magenta": "5",
-            "red": "1",
-            "white": "15",
-            "yellow": "3"
+        self.color_codes = {
+            "blue": 4,
+            "cyan": 6,
+            "green": 2,
+            "magenta": 5,
+            "red": 1,
+            "white": 15,
+            "yellow": 3
         }
         self.end = "m"
         self.esc = "\x1b["
         self.start_code = self.esc + "38;5;"
 
-    def cprint(self, message, color):
-        """ Print message colored """
-        print(self.message_string(message, color))
-
-    def message_string(self, message, color):
-        """ Return the colored formatted message string """
-        return "{}{}{}".format(self.code(color), message, self.reset())
-
-    def code(self, color):
-        """ Generate color code """
-        return "{}{}{}".format(self.start_code, self.colors[color], self.end)
-
-    def get_colors(self):
+    def colors(self):
         """ Get all colors """
-        return self.colors.keys()
+        return self.color_codes.keys()
 
-    def reset(self):
+    def cprint(self, message, color):
+        """ Print a colored message """
+        print(self.cstring(message, color))
+
+    def cstring(self, message, color):
+        """ Return the colored formatted message string """
+        return "{}{}{}".format(self._code(color), message, self._reset())
+
+    def _code(self, color):
+        """ Generate color code """
+        return "{}{}{}".format(self.start_code, self.color_codes[color], self.end)
+
+    def _reset(self):
         """ Reset color code """
         return "{}0{}".format(self.esc, self.end)
 
@@ -110,12 +113,36 @@ class SearchAndReplace(object):
                     obj[key] = string.replace(value, self.search, self.replace)
             return obj
         else:
-            _logger().exception("Object is no valid dictionary.")
             raise TypeError("Object is no valid dictionary.")
 
     def in_str(self, obj):
         """ Search and replace values in a string """
         return obj.replace(self.search, self.replace)
+
+
+class Semaphore(object):
+    """ A factory function that returns a new BoundedSemaphore. """
+
+    def __init__(self, threads):
+        self._set(threads)
+
+    def set(self, threads):
+        """ Set the amount of threads. """
+        self._set(threads)
+
+    def get(self):
+        """
+        Get BoundedSemaphore factory.
+        Returns a tuple. The first object is BoundedSemaphore, the second
+        item is the thread limit as int.
+        """
+        return BoundedSemaphore(self.threads), self.threads
+
+    def _set(self, threads):
+        try:
+            self.threads = int(threads)
+        except ValueError as error:
+            raise error
 
 
 class Time(object):
@@ -143,9 +170,6 @@ class Time(object):
 class Configuration(object):
     """ Get and set the configuration for the Docker Test Runner """
 
-    # @TODO: Logging is not working for the Configuration since it's initialised
-    #        before the logger.
-
     def __init__(self, config_file):
         self.config = dict({})
         self.config_file = config_file
@@ -153,29 +177,29 @@ class Configuration(object):
         self._from_file()
         self._validate()
 
-    def add(self, section, key, value):
-        """ Add a key value pair to a section """
-        self.config[section][key] = value
+    def add(self, key, value, section=None):
+        """ Add a key value pair (to a section) """
+        try:
+            if section is not None:
+                self.config[section][key] = value
+            else:
+                self.config[key] = value
+        except KeyError as error:
+            raise error
 
-    def add_section(self, section, obj):
-        """ Get an entire section """
-        self.config[section] = obj
-
-    def get_all(self):
-        """ Get the entire configuration """
+    def get(self, key=None, section=None):
+        """
+        Get the entire configuration or define a key
+        (with or without section) and get the value.
+        """
+        if key is not None:
+            try:
+                if section is not None:
+                    return self.config[section][key]
+                return self.config[key]
+            except KeyError as error:
+                raise error
         return self.config
-
-    def get_key(self, key):
-        """ Get one key """
-        return self.config[key]
-
-    def get_section(self, section):
-        """ Get an entire section """
-        return self.config[section]
-
-    def get_section_key(self, section, key):
-        """ Get one section key """
-        return self.config[section][key]
 
     def _from_file(self):
         try:
@@ -185,125 +209,140 @@ class Configuration(object):
             raise error
 
     def _validate(self):
-        required_config = ["docker_image_build_args", "docker_image_path", "docker_images"]
-        optional_config = {
+        optional_config_keys = {
             "disable_logging": False,
             "docker_container_environments": dict({}),
             "docker_container_volumes": dict({}),
             "log_level": "INFO",
-            "threads": 2
-            }
-        for required_key in required_config:
-            if not self.config.has_key(required_key):
-                message = "Required configuration key \"%s\" is missing." % (required_key)
-                _logger().exception(message)
-                raise Exception(message)
-        for optional_config_key, optional_config_value in optional_config.iteritems():
+            "threads": 2}
+        required_config_keys = [
+            "docker_image_build_args",
+            "docker_image_path",
+            "docker_images"]
+        for optional_config_key, optional_config_value in optional_config_keys.iteritems():
             if not self.config.has_key(optional_config_key):
-                self.add_section(optional_config_key, optional_config_value)
+                self.add(optional_config_key, optional_config_value)
+        for required_config_key in required_config_keys:
+            if not self.config.has_key(required_config_key):
+                raise KeyError(
+                    "Required configuration key \"%s\" is missing." % \
+                    required_config_key)
 
 
-class DockerContainers(object):
-    """ Create container configuration and give the possibility to run them """
+class _DockerThreadedObject(object):
 
-    def __init__(self, semaphore, config, images):
+    def __init__(self, semaphore, config, class_instance):
+        self.class_instance = class_instance
         self.config = config
-        self.containers = dict({})
-        self.images = images
+        self.objects = dict({})
         self.queue = Queue()
         self.semaphore = semaphore
-        self._containers()
-        self._validate()
+
+    def get(self, obj=None):
+        """ Get object informations (for an specific object) """
+        self._wait_for_queue()
+        if obj is not None:
+            try:
+                return self.objects[obj]
+            except KeyError as error:
+                raise error
+        return self.objects
+
+    def info(self):
+        """ Display complete object information """
+        print(dumps(self.get(), indent=4, sort_keys=True))
 
     def run(self):
-        """ Run the containers """
-        threads = []
-        for docker_container, docker_container_configuration in self.containers.iteritems():
-            run_docker_container = _RunDockerContainer(
-                self.semaphore, \
-                self.queue, \
-                docker_container, \
-                docker_container_configuration
-                )
-            run_docker_container.start()
-            threads.append(run_docker_container)
+        """ Start to run the threaded the object class """
+        threads = list([])
+        for obj, obj_config in self.objects.iteritems():
+            run = self.class_instance(
+                self.semaphore,
+                self.queue,
+                obj,
+                obj_config)
+            run.start()
+            threads.append(run)
         for thread in threads:
             thread.join()
 
-    def get(self, container):
-        """ Get container information for specific container """
-        return self.get_all()[container]
-
-    def get_all(self):
-        """ Get container information for all containers """
+    def _wait_for_queue(self):
         while not self.queue.empty():
-            self.containers.update(self.queue.get())
-        return self.containers
+            self.objects.update(self.queue.get())
+        self._validate()
 
-    def info(self):
-        """ Display complete container information """
-        print(dumps(self.get_all(), indent=4, sort_keys=True))
+    def _validate(self):
+        if not bool(self.objects):
+            raise KeyError("%s: Object dictionary is empty." % self.__class__.__name__)
 
-    def _containers(self):
+
+class DockerContainers(_DockerThreadedObject):
+    """ Create container configuration and give the possibility to run them """
+
+    def __init__(self, semaphore, config, images):
+        super(DockerContainers, self).__init__(semaphore, config, _RunDockerContainer)
+        self.images = images
+        self._objects()
+
+    def _objects(self):
         """ Create the container run configuration """
-        self.containers = dict({})
         for image in self.images.iterkeys(): # pylint: disable=R1702
             if bool(self.config["docker_container_environments"]):
-                _logger().debug("Create environment based container information.")
+                LOG.debug("Create environment based container information.")
                 for env, env_settings in self.config["docker_container_environments"].iteritems():
                     skip = False
                     if env_settings.has_key("skip_images"):
                         for skip_image in env_settings["skip_images"]:
                             if skip_image == image:
-                                _logger().debug("Skipping container run for image: %s", image)
+                                LOG.debug("Skipping container run for image: %s", image)
                                 skip = True
                     if not skip:
-                        name = "%s_%s_%s" % (
+                        container = "%s_%s_%s" % (
                             image,
                             env,
                             "".join(
                                 random.choice(string.ascii_letters + string.digits)
-                                for _ in range(6)
-                                )
-                            )
-                        self.containers[name] = dict({})
-                        self.containers[name]["environment"] = env_settings
-                        self.containers[name]["image"] = self.images[image]["image"]
-                        self.containers[name]["messages"] = list([])
+                                for _ in range(6)))
+                        self.objects[container] = dict({})
+                        self.objects[container]["environment"] = env_settings
+                        self.objects[container]["image"] = self.images[image]["image"]
+                        self.objects[container]["messages"] = list([])
                         if self.config.has_key("docker_container_volumes"):
-                            self.containers[name]["volumes"] = \
+                            self.objects[container]["volumes"] = \
                                 self.config["docker_container_volumes"]
             else:
-                _logger().debug("Create container information. No environments set.")
-                name = "%s_%s" % (
+                LOG.debug("Create container information. No environments set.")
+                container = "%s_%s" % (
                     image,
                     "".join(
                         random.choice(string.ascii_letters + string.digits)
-                        for _ in range(6)
-                        )
-                    )
-                self.containers[name] = dict({})
-                self.containers[name]["environment"] = dict({})
-                self.containers[name]["image"] = self.images[image]["image"]
-                self.containers[name]["messages"] = list([])
+                        for _ in range(6)))
+                self.objects[container] = dict({})
+                self.objects[container]["environment"] = dict({})
+                self.objects[container]["image"] = self.images[image]["image"]
+                self.objects[container]["messages"] = list([])
                 if self.config.has_key("docker_container_volumes"):
-                    self.containers[name]["volumes"] = self.config["docker_container_volumes"]
+                    self.objects[container]["volumes"] = self.config["docker_container_volumes"]
 
-    def _validate(self):
-        if not bool(self.containers):
-            log_message = "No containers in dictionary.".format()
-            _logger().error(log_message)
-            raise KeyError(log_message)
-        else:
-            pass
+
+class DockerImages(_DockerThreadedObject):
+    """ Create Docker images """
+
+    def __init__(self, semaphore, config):
+        super(DockerImages, self).__init__(semaphore, config, _BuildDockerImage)
+        self._objects()
+
+    def _objects(self):
+        for image in self.config["docker_images"]:
+            self.objects[image] = self.config
 
 
 class _RunDockerContainer(Thread):
 
-    def __init__(self, semaphore, queue, name, container):
+    def __init__(self, semaphore, queue, name, config):
         super(_RunDockerContainer, self).__init__()
-        self.color = random.choice(Color().get_colors())
-        self.container = container
+        self.color = Color()
+        self.container = config
         self.name = name
         self.queue = queue
         self.semaphore = semaphore
@@ -313,96 +352,50 @@ class _RunDockerContainer(Thread):
         try:
             self._run_container()
         finally:
-            self.queue.put({"%s" % (self.name): self.container})
+            self.queue.put({self.name: self.container})
             self.semaphore.release()
 
     def _run_container(self):
         start_time = time()
+        color = random.choice(self.color.colors())
         try:
-            _logger().info("Starting container %s...", self.name)
+            LOG.info("Starting container %s...", self.name)
             container = _docker_client().containers.run(
-                self.container["image"], \
-                detach=True, \
-                environment=self.container["environment"], \
-                name=self.name, \
-                remove=True, \
-                stderr=True, \
-                stdout=True, \
-                volumes=self.container["volumes"]
-                )
+                self.container["image"],
+                detach=True,
+                environment=self.container["environment"],
+                name=self.name,
+                remove=True,
+                stderr=True,
+                stdout=True,
+                volumes=self.container["volumes"])
             for line in container.logs(stream=True):
-                _logger().info(Color().message_string("%s" % (line.strip()), self.color))
+                LOG.info(
+                    self.color.cstring(
+                        "%s" % (line.strip()),
+                        color))
             self.container["exit_code"] = int(container.wait()["StatusCode"])
             if self.container["exit_code"] == 0:
                 log_message = "Container {} run succeeded. [Duration: {}]" \
                     .format(self.name, Time(start_time).delta_in_hms())
-                _logger().info(log_message)
+                LOG.info(log_message)
                 self.container["messages"].append(log_message)
             else:
                 log_message = "Container {} run failed. [Duration: {}]" \
                     .format(self.name, Time(start_time).delta_in_hms())
-                _logger().error(log_message)
+                LOG.error(log_message)
                 self.container["exit_code"] = 1
                 self.container["messages"].append(log_message)
         except (
-                docker.errors.ContainerError, \
-                docker.errors.ImageNotFound, \
-                docker.errors.APIError
-            ) as error:
+                docker.errors.ContainerError,
+                docker.errors.ImageNotFound,
+                docker.errors.APIError) as error:
             log_message = "Container {} run failed. [Duration: {}]" \
                 .format(self.name, Time(start_time).delta_in_hms())
-            _logger().error(log_message)
+            LOG.error(log_message)
             self.container["exit_code"] = 1
             self.container["messages"].append(log_message)
             raise error
-
-
-class DockerImages(object):
-    """ Create Docker images """
-
-    def __init__(self, semaphore, config):
-        self.config = config
-        self.images = dict({})
-        self.queue = Queue()
-        self.semaphore = semaphore
-        self._validate()
-
-    def get(self, image):
-        """ Get image information for specific container """
-        return self.get_all()[image]
-
-    def get_all(self):
-        """ Get all information about the generated images """
-        while not self.queue.empty():
-            self.images.update(self.queue.get())
-        return self.images
-
-    def info(self):
-        """ Display complete image information """
-        print(dumps(self.get_all(), indent=4, sort_keys=True))
-
-    def run(self):
-        """ Run Docker image creation """
-        threads = []
-        for docker_image in self.config["docker_images"]:
-            build_docker_image = _BuildDockerImage(
-                self.semaphore, \
-                self.queue, \
-                docker_image, \
-                self.config
-                )
-            build_docker_image.start()
-            threads.append(build_docker_image)
-        for thread in threads:
-            thread.join()
-
-    def _validate(self):
-        if not bool(self.config["docker_images"]):
-            log_message = "No images in dictionary.".format()
-            _logger().error(log_message)
-            raise KeyError(log_message)
-        else:
-            pass
 
 
 class _BuildDockerImage(Thread):
@@ -420,63 +413,55 @@ class _BuildDockerImage(Thread):
         try:
             self._build()
         finally:
-            self.queue.put(self.image)
+            self.queue.put({self.name: self.image})
             self.semaphore.release()
 
     def _build(self):
         start_time = time()
-        _logger().debug("Starting image build process.")
+        LOG.debug("Starting image build process.")
         dockerfile = "%s/Dockerfile_%s" % (self.config["docker_image_path"], self.name)
-        self.image[self.name] = dict({})
-        self.image[self.name]["messages"] = list([])
-        _logger().debug("Using Dockerfile: %s", dockerfile)
+        LOG.debug("Using Dockerfile: %s", dockerfile)
+        self.image["messages"] = list([])
         try:
-            _logger().info("Build %s image...", self.name)
-            _logger().debug(
-                "Build information:\nbuildargs: %s\ndockerfile: %s\npath: %s", \
+            LOG.info("Build %s image...", self.name)
+            LOG.debug(
+                "Build information:\nbuildargs: %s\ndockerfile: %s\npath: %s",
                 self.config["docker_image_build_args"],
                 dockerfile,
-                self.config["docker_image_path"]
-                )
+                self.config["docker_image_path"])
             image, build_logs = _docker_client().images.build(
-                buildargs=self.config["docker_image_build_args"], \
-                dockerfile=dockerfile, \
-                path=self.config["docker_image_path"]
-                )
+                buildargs=self.config["docker_image_build_args"],
+                dockerfile=dockerfile,
+                path=self.config["docker_image_path"],
+                rm=True)
             del build_logs
-            _logger().debug("ID of image %s: %s", self.name, image.short_id)
-            self.image[self.name]["image"] = image.short_id
+            LOG.debug("ID of image %s: %s", self.name, image.short_id)
+            self.image["image"] = image.short_id
             log_message = "{} image created. [Duration: {}]" \
                 .format(self.name, Time(start_time).delta_in_hms())
-            _logger().info(log_message)
-            self.image[self.name]["exit_code"] = 0
-            self.image[self.name]["messages"].append(log_message)
+            LOG.info(log_message)
+            self.image["exit_code"] = 0
+            self.image["messages"].append(log_message)
         except (
-                docker.errors.BuildError, \
-                docker.errors.APIError, \
-                TypeError
-            ) as error:
+                docker.errors.BuildError,
+                docker.errors.APIError,
+                TypeError) as error:
             log_message = "Build image {} failed. [Duration: {}]" \
                 .format(self.name, Time(start_time).delta_in_hms())
-            _logger().error(log_message)
-            self.image[self.name]["exit_code"] = 1
-            self.image[self.name]["messages"].append(log_message)
+            LOG.error(log_message)
+            self.image["exit_code"] = 1
+            self.image["messages"].append(log_message)
             raise error
 
 
 def _docker_client():
-    """ Get the Docker client """
     try:
-        _logger().debug("Creating Docker connection.")
-        docker_client = docker.from_env()
-        return docker_client
+        return docker.from_env()
     except docker.errors.DockerException as error:
-        _logger().exception("Can not communicate to the Docker server.")
         raise error
 
 
 def _logger(log_level="INFO", disable_logging=False):
-    """ Set up the logger """
     try:
         log_level = logging.getLevelName(log_level)
         log_format = "%(log_color)s[%(levelname)s] %(threadName)s:%(reset)s %(message)s"
@@ -491,57 +476,70 @@ def _logger(log_level="INFO", disable_logging=False):
         raise error
 
 
-def _semaphore(threads=2):
-    """ Set thread limits """
-    try:
-        _logger().debug("Setting thread limit to: %s", threads)
-        threads = int(threads)
-        semaphore = BoundedSemaphore(threads)
-        return semaphore, threads
-    except ValueError as error:
-        _logger().exception("Can not set thread limit: %s is not an integer.", threads)
-        raise error
-
-
 def _run(args): # pylint: disable=R0912,R0914,R0915
     """ Run the Docker test runner """
+
+    def _config(config_file):
+        """ Make me nice one day... """
+        _config = Configuration(config_file)
+        _config = _config.get()
+        if os.environ.has_key("TRAVIS"):
+            _config.add("TRAVIS", os.environ.get("TRAVIS"), "docker_image_build_args")
+        os.environ.update(_config.get("docker_image_build_args"))
+        if args.disable_logging:
+            _disable_logging = args.disable_logging
+        elif _config["disable_logging"]:
+            _disable_logging = _config["disable_logging"]
+        else:
+            _disable_logging = False
+        if args.log_level:
+            _log_level = args.log_level
+        elif _config["log_level"]:
+            _log_level = _config["log_level"]
+        else:
+            _log_level = "INFO"
+        if args.threads:
+            _threads = args.threads
+        elif _config["threads"]:
+            _threads = _config["threads"]
+        else:
+            _threads = 2
+        _config["disable_logging"] = _disable_logging
+        _config["log_level"] = _log_level
+        _config["threads"] = _threads
+        return _config
+
+    def _objects_messages(name, objects):
+        for obj in objects.itervalues():
+            if obj["exit_code"] == 0:
+                _sucessfull[name] += 1
+            _exit_code.append(obj["exit_code"])
+            for message in obj["messages"]:
+                if obj["exit_code"] == 0:
+                    LOG.info(message)
+                else:
+                    LOG.error(message)
+
     _exit_code = [0]
     _expected = dict({})
     _start_time = time()
     _sucessfull = dict({})
     _sucessfull["container_runs"] = 0
     _sucessfull["image_runs"] = 0
-    _config = Configuration(args.config_file)
-    if os.environ.has_key("TRAVIS"):
-        _config.add("docker_image_build_args", "TRAVIS", os.environ.get("TRAVIS"))
-    os.environ.update(_config.get_section("docker_image_build_args"))
-    config = _config.get_all()
-    if args.disable_logging:
-        _disable_logging = args.disable_logging
-    elif config["disable_logging"]:
-        _disable_logging = config["disable_logging"]
-    else:
-        _disable_logging = False
-    if args.log_level:
-        _log_level = args.log_level
-    elif config["log_level"]:
-        _log_level = config["log_level"]
-    else:
-        _log_level = "INFO"
-    if args.threads:
-        _threads = args.threads
-    elif config["threads"]:
-        _threads = config["threads"]
-    else:
-        _threads = 2
-    _logger(_log_level, _disable_logging)
-    semaphore, threads = _semaphore(_threads)
+
+    config = _config(args.config_file)
+
+    LOG = _logger(config["log_level"], config["disable_logging"]) # pylint: disable=C0103,W0621
+
+    _semaphore = Semaphore(config["threads"])
+    semaphore, threads = _semaphore.get()
+
+    LOG.info("%s Threads", threads)
+
     _expected["docker_images"] = len(config["docker_images"])
-    _logger().info("%s Threads", threads)
-    _logger().info("%s expected images", _expected["docker_images"])
+    LOG.info("%s expected images", _expected["docker_images"])
     if not args.build_only: #pylint: disable=R1702
         if bool(config["docker_container_environments"]):
-            _docker_envs = len(config["docker_container_environments"])
             _skip = 0
             for _docker_image in config["docker_images"]:
                 for _docker_env, _docker_env_settings in \
@@ -550,96 +548,100 @@ def _run(args): # pylint: disable=R0912,R0914,R0915
                         for _skip_image in _docker_env_settings["skip_images"]:
                             if _docker_image == _skip_image:
                                 _skip += 1
+            _docker_envs = len(config["docker_container_environments"])
             _expected["docker_container_runs"] = (_docker_envs * _expected["docker_images"]) - _skip
-            _logger().info("%s environments", _docker_envs)
-            _logger().info("%s expected container runs", _expected["docker_container_runs"])
+            LOG.info("%s environments", _docker_envs)
+            LOG.info("%s expected container runs", _expected["docker_container_runs"])
         else:
             _expected["docker_container_runs"] = _expected["docker_images"]
-            _logger().info("%s environments", "0")
-            _logger().info("%s expected container runs", _expected["docker_container_runs"])
+            LOG.info("%s environments", "0")
+            LOG.info("%s expected container runs", _expected["docker_container_runs"])
+
     _docker_images = DockerImages(semaphore, config)
     _docker_images.run()
-    docker_images = _docker_images.get_all()
+    docker_images = _docker_images.get()
+
     if not args.build_only:
         _docker_containers = DockerContainers(semaphore, config, docker_images)
         _docker_containers.run()
-        docker_containers = _docker_containers.get_all()
-    _logger().info("Summary:")
-    for items in docker_images.itervalues():
-        if items["exit_code"] == 0:
-            _sucessfull["image_runs"] += 1
-        _exit_code.append(items["exit_code"])
-        for message in items["messages"]:
-            _logger().info(message)
+        docker_containers = _docker_containers.get()
+
+    LOG.info("Summary:")
+    _objects_messages("image_runs", docker_images)
     if not args.build_only:
-        for container in docker_containers.itervalues():
-            if container["exit_code"] == 0:
-                _sucessfull["container_runs"] += 1
-            _exit_code.append(container["exit_code"])
-            for message in container["messages"]:
-                _logger().info(message)
-    _logger().info("Threads: %s", threads)
-    _logger().info("Images: %s/%s", _sucessfull["image_runs"], _expected["docker_images"])
+        _objects_messages("container_runs", docker_containers)
+    LOG.info("Threads: %s", threads)
+    image_msg = "Images: %s/%s" % (_sucessfull["image_runs"], _expected["docker_images"])
+    if _sucessfull["image_runs"] == _expected["docker_images"]:
+        LOG.info(image_msg)
+    else:
+        LOG.error(image_msg)
     if not args.build_only:
-        _logger().info(
-            "Containers: %s/%s",
-            _sucessfull["container_runs"],
-            _expected["docker_container_runs"]
-            )
-    _logger().info("Total duration: %s", Time(_start_time).delta_in_hms())
+        container_msg = "Containers: %s/%s" % \
+            (_sucessfull["container_runs"], _expected["docker_container_runs"])
+        if _sucessfull["container_runs"] == _expected["docker_container_runs"]:
+            LOG.info(container_msg)
+        else:
+            LOG.error(container_msg)
+    LOG.info("Total duration: %s", Time(_start_time).delta_in_hms())
+
     exit_code = sum(_exit_code)
-    exit(exit_code)
+    return exit_code
+
+
+def _version():
+    print(__version__)
+    return 0
 
 
 def main():
     """ Build Docker images and run containers in different environments. """
+
     parser = ArgumentParser(
-        description="Build Docker images and run containers in different environments.", \
-        formatter_class=RawTextHelpFormatter
-        )
+        description="Build Docker images and run containers in different environments.",
+        formatter_class=RawTextHelpFormatter)
     parser.add_argument(
-        "-f", \
-        "--file", \
-        default="docker_test_runner.yml", \
-        dest="config_file", \
-        metavar="FILE", \
-        help="Specify an alternate configuration file.\n(default: docker_test_runner.yml)"
-        )
+        "-f",
+        "--file",
+        default="docker_test_runner.yml",
+        dest="config_file",
+        metavar="FILE",
+        help="Specify an alternate configuration file.\n"
+             "(default: docker_test_runner.yml)")
     parser.add_argument(
-        "-t", \
-        "--threads", \
-        dest="threads", \
-        help="The amount of threads to use.\n(default: 2)"
-        )
+        "-t",
+        "--threads",
+        dest="threads",
+        help="The amount of threads to use.\n"
+             "(default: 2)")
     parser.add_argument(
-        "--build-only", \
-        action="store_true", \
-        dest="build_only", \
-        help="Build Docker images. Don't start Docker containers."
-        )
+        "--build-only",
+        action="store_true",
+        dest="build_only",
+        help="Build Docker images. Don't start Docker containers.")
     parser.add_argument(
-        "--log-level", \
-        dest="log_level", \
-        help="Set log level.\nValid: CRITICAL, DEBUG, ERROR, INFO, NOTSET, WARNING\n(default: INFO)"
-        )
+        "--log-level",
+        dest="log_level",
+        help="Set log level.\n"
+             "Valid: CRITICAL, DEBUG, ERROR, INFO, NOTSET, WARNING\n"
+             "(default: INFO)")
     parser.add_argument(
-        "--disable-logging", \
-        action="store_true", \
-        dest="disable_logging", \
-        help="Completely disable logging."
-        )
+        "--disable-logging",
+        action="store_true",
+        dest="disable_logging",
+        help="Completely disable logging.")
     parser.add_argument(
-        "-v", \
-        "--version", \
-        action="store_true", \
-        dest="version", \
-        help="Display version information."
-        )
+        "-v",
+        "--version",
+        action="store_true",
+        dest="version",
+        help="Display version information.")
     args = parser.parse_args()
+
     if args.version:
-        print(__version__)
-        exit(0)
-    _run(args)
+        exit(_version())
+
+    exit(_run(args))
 
 
 if __name__ == "__main__":
