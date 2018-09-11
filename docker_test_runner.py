@@ -45,7 +45,7 @@ __email__ = "me@timorunge.com"
 __license__ = "BSD"
 __maintainer__ = "Timo Runge"
 __title__ = "docker_test_runner"
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 
 LOG = colorlog.getLogger(__name__)
@@ -213,7 +213,9 @@ class Configuration(object):
             "disable_logging": False,
             "docker_container_environments": dict({}),
             "docker_container_volumes": dict({}),
+            "docker_remove_images": True,
             "log_level": "INFO",
+            "project_name": None,
             "threads": 2}
         required_config_keys = [
             "docker_image_build_args",
@@ -429,11 +431,14 @@ class _BuildDockerImage(Thread):
                 self.config["docker_image_build_args"],
                 dockerfile,
                 self.config["docker_image_path"])
+            tag = "%s_%s" % (self.config["project_name"], self.name) \
+                if self.config.has_key("project_name") else "%s" % self.name
             image, build_logs = _docker_client().images.build(
                 buildargs=self.config["docker_image_build_args"],
                 dockerfile=dockerfile,
                 path=self.config["docker_image_path"],
-                rm=True)
+                rm=bool(self.config["docker_remove_images"]),
+                tag=tag.lower())
             del build_logs
             LOG.debug("ID of image %s: %s", self.name, image.short_id)
             self.image["image"] = image.short_id
@@ -468,9 +473,7 @@ def _logger(log_level="INFO", disable_logging=False):
         colorlog.basicConfig(level=log_level, format=log_format)
         logger = colorlog.getLogger(__name__)
         if disable_logging:
-            # @TODO: Fix message: No handlers could be found for logger "__main__" when logging
-            #        is disabled.
-            logger.propagate = False
+            logger.disabled = True
         return logger
     except Exception as error:
         raise error
@@ -566,7 +569,11 @@ def _run(args): # pylint: disable=R0912,R0914,R0915
         _docker_containers.run()
         docker_containers = _docker_containers.get()
 
-    LOG.info("Summary:")
+    LOG.info(
+        "Summary for project %s:" % \
+        (config["project_name"]) \
+        if config["project_name"] \
+        else "Summary:")
     _objects_messages("image_runs", docker_images)
     if not args.build_only:
         _objects_messages("container_runs", docker_containers)

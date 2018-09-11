@@ -52,6 +52,9 @@ In the [testing section](#testing) you can find some explenation about
 the entire workflow.
 
 ```yaml
+# Select a project name. This is just used for Docker images.
+project_name: dtr
+
 # The amount of threads to use.
 # Can be overridden by the command line.
 threads: 4
@@ -87,6 +90,10 @@ docker_images:
   - Ubuntu_17_10
   - Ubuntu_18_04
   - Ubuntu_18_10
+
+# Remove intermediate containers after a successful build.
+# Default value is `True`
+docker_remove_images: True
 
 # Environment variables to set inside the container.
 # Each environment will run in a separate container.
