@@ -103,7 +103,7 @@ class SearchAndReplace(object):
         """ Search and replace keys and values in a dictionary """
         if bool(obj) and isinstance(obj, dict):
             for key in obj.keys():
-                if self.search in key:
+                if isinstance(key, str) and self.search in key:
                     new_key = string.replace(key, self.search, self.replace)
                     obj[new_key] = obj.pop(key)
             for key, value in obj.items():
