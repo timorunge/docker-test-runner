@@ -29,6 +29,7 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 import os
 import logging
 import string
+import re
 import random
 from threading import Thread, BoundedSemaphore
 from Queue import Queue
@@ -99,25 +100,27 @@ class SearchAndReplace(object):
         self.replace = replace
         self.search = search
 
-    def in_dict(self, obj):
+    def in_dict(self, obj, regex=False):
         """ Search and replace keys and values in a dictionary """
         if bool(obj) and isinstance(obj, dict):
             for key in obj.keys():
                 if isinstance(key, str) and self.search in key:
-                    new_key = string.replace(key, self.search, self.replace)
+                    new_key = self.in_str(key, regex)
                     obj[new_key] = obj.pop(key)
             for key, value in obj.items():
                 if isinstance(value, dict):
-                    obj[key] = self.in_dict(value)
+                    obj[key] = self.in_dict(value, regex)
                 if isinstance(value, str) and self.search in value:
-                    obj[key] = string.replace(value, self.search, self.replace)
+                    obj[key] = self.in_str(value, regex)
             return obj
         else:
             raise TypeError("Object is no valid dictionary.")
 
-    def in_str(self, obj):
+    def in_str(self, obj, regex=False):
         """ Search and replace values in a string """
-        return obj.replace(self.search, self.replace)
+        if not regex:
+            return string.replace(obj, self.search, self.replace)
+        return re.sub(self.search, self.replace, obj)
 
 
 class Semaphore(object):
@@ -431,14 +434,18 @@ class _BuildDockerImage(Thread):
                 self.config["docker_image_build_args"],
                 dockerfile,
                 self.config["docker_image_path"])
-            tag = "%s_%s" % (self.config["project_name"], self.name) \
-                if self.config.has_key("project_name") else "%s" % self.name
+            project_name = None
+            if self.config["project_name"] is not None:
+                project_name = SearchAndReplace("[^0-9a-zA-Z]+", "_"). \
+                    in_str(self.config["project_name"], True)
+            tag = ("%s_%s" % (project_name, self.name)).lower() \
+                if project_name is not None else ("%s" % self.name).lower()
             image, build_logs = _docker_client().images.build(
                 buildargs=self.config["docker_image_build_args"],
                 dockerfile=dockerfile,
                 path=self.config["docker_image_path"],
                 rm=bool(self.config["docker_remove_images"]),
-                tag=tag.lower())
+                tag=tag)
             del build_logs
             LOG.debug("ID of image %s: %s", self.name, image.short_id)
             self.image["image"] = image.short_id
