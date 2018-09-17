@@ -2,11 +2,11 @@
 
 - debug:
     msg: "injected_dict: Key: {{ item.key }}, Value: {{ item.value }}"
-  with_dict: "{{ injected_dict }}"
+  loop: "{{ injected_dict|dict2items }}"
 
 - debug:
     msg: "injected_list: Item: {{ item }}"
-  with_items: "{{ injected_list }}"
+  loop: "{{ injected_list|flatten(levels=1) }}"
 
 - debug:
     msg: "injected_variable: {{ injected_variable }}"

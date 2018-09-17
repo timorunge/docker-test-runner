@@ -1,7 +1,7 @@
 ---
 
 # Select a project name. This is just used for Docker images.
-project_name: dtr
+project_name: DTR - Docker Test Runner
 
 # The amount of threads to use.
 # Can be overridden by the command line.
