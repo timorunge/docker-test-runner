@@ -102,16 +102,17 @@ class SearchAndReplace(object):
 
     def in_dict(self, obj, regex=False):
         """ Search and replace keys and values in a dictionary """
-        if bool(obj) and isinstance(obj, dict):
-            for key in obj.keys():
-                if isinstance(key, str) and self.search in key:
-                    new_key = self.in_str(key, regex)
-                    obj[new_key] = obj.pop(key)
-            for key, value in obj.items():
-                if isinstance(value, dict):
-                    obj[key] = self.in_dict(value, regex)
-                if isinstance(value, str) and self.search in value:
-                    obj[key] = self.in_str(value, regex)
+        if isinstance(obj, dict):
+            if bool(obj):
+                for key in obj.keys():
+                    if isinstance(key, str) and self.search in key:
+                        new_key = self.in_str(key, regex)
+                        obj[new_key] = obj.pop(key)
+                for key, value in obj.items():
+                    if isinstance(value, dict):
+                        obj[key] = self.in_dict(value, regex)
+                    if isinstance(value, str) and self.search in value:
+                        obj[key] = self.in_str(value, regex)
             return obj
         else:
             raise TypeError("Object is no valid dictionary.")
