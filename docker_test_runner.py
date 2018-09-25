@@ -31,7 +31,7 @@ import logging
 import string
 import re
 import random
-from threading import Thread, BoundedSemaphore
+from threading import Thread, BoundedSemaphore, _Verbose
 from Queue import Queue
 from time import time
 from json import dumps
@@ -343,7 +343,7 @@ class DockerImages(_DockerThreadedObject):
             self.objects[image] = self.config
 
 
-class _RunDockerContainer(Thread):
+class _RunDockerContainer(Thread, _Verbose):
 
     def __init__(self, semaphore, queue, name, config):
         super(_RunDockerContainer, self).__init__()
@@ -404,7 +404,7 @@ class _RunDockerContainer(Thread):
             raise error
 
 
-class _BuildDockerImage(Thread):
+class _BuildDockerImage(Thread, _Verbose):
 
     def __init__(self, semaphore, queue, name, config):
         super(_BuildDockerImage, self).__init__()

@@ -164,6 +164,8 @@ Testing
 -------
 
 [![Build Status](https://travis-ci.org/timorunge/docker-test-runner.svg?branch=master)](https://travis-ci.org/timorunge/docker-test-runner)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/timorunge/docker-test-runner.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/timorunge/docker-test-runner/alerts/)
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/timorunge/docker-test-runner.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/timorunge/docker-test-runner/context:python)
 
 Tests are done with [Docker](https://www.docker.com) and the
 `docker_test_runner` itself.
