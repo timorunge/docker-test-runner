@@ -27,6 +27,7 @@ description:
 from __future__ import print_function
 from argparse import ArgumentParser, RawTextHelpFormatter
 import os
+import fnmatch
 import logging
 import string
 import re
@@ -177,6 +178,7 @@ class Configuration(object):
     def __init__(self, config_file):
         self.config = dict({})
         self.config_file = config_file
+        self.config_filename = "docker_test_runner.yml"
         self.path = os.path.dirname(os.path.abspath(__file__))
         self._from_file()
         self._validate()
@@ -207,7 +209,13 @@ class Configuration(object):
 
     def _from_file(self):
         try:
-            with open("%s" % (self.config_file), "r") as config_file:
+            if os.path.isfile(self.config_file):
+                _config_file = self.config_file
+            else:
+                _files = list(_recursive_iglob(self.path, self.config_filename))
+                _first_file = next(iter(_files))
+                _config_file = _first_file
+            with open("%s" % (_config_file), "r") as config_file:
                 self.config = SearchAndReplace("__PATH__", self.path).in_dict(load(config_file))
         except IOError as error:
             raise error
@@ -487,6 +495,13 @@ def _logger(log_level="INFO", disable_logging=False):
         raise error
 
 
+def _recursive_iglob(root_dir=".", pattern="*"):
+    for root, dirs, files in os.walk(root_dir):
+        del dirs
+        for filename in fnmatch.filter(files, pattern):
+            yield os.path.join(root, filename)
+
+
 def _run(args): # pylint: disable=R0912,R0914,R0915
     """ Run the Docker test runner """
 
@@ -622,7 +637,7 @@ def main():
         dest="config_file",
         metavar="FILE",
         help="Specify an alternate configuration file.\n"
-             "(default: docker_test_runner.yml)")
+             "(default: docker_test_runner.yml - there is a recursive search for this file. The first one found will be used.)")
     parser.add_argument(
         "-t",
         "--threads",

@@ -147,7 +147,7 @@ Build Docker images and run containers in different environments.
 optional arguments:
   -h, --help            show this help message and exit
   -f FILE, --file FILE  Specify an alternate configuration file.
-                        (default: docker_test_runner.yml)
+                        (default: docker_test_runner.yml - there is a recursive search for this file. The first one found will be used.)
   -t THREADS, --threads THREADS
                         The amount of threads to use.
                         (default: 2)
