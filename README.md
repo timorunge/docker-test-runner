@@ -38,7 +38,7 @@ In this repository you can find an [install.sh](install.sh) script which will
 install all requirements and download the latest version of the script itself.
 
 ```sh
-curl https://raw.githubusercontent.com/timorunge/docker-test-runner/master/install.sh | sh
+curl -sSf https://raw.githubusercontent.com/timorunge/docker-test-runner/master/install.sh | sh
 ```
 
 Configuration
@@ -53,7 +53,7 @@ the entire workflow.
 
 ```yaml
 # Select a project name. This is just used for Docker images.
-project_name: dtr
+project_name: DTR - Docker Test Runner
 
 # The amount of threads to use.
 # Can be overridden by the command line.
