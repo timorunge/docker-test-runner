@@ -312,12 +312,11 @@ class DockerContainers(_DockerThreadedObject):
     """ Create container configuration and give the possibility to run them """
 
     def __init__(self, semaphore, config, images):
-        super(
-            DockerContainers,
-            self).__init__(
-                semaphore,
-                config,
-                _RunDockerContainer)
+        _DockerThreadedObject.__init__(
+            self,
+            semaphore,
+            config,
+            _RunDockerContainer)
         self.images = images
         self._objects()
 
@@ -373,12 +372,12 @@ class DockerImages(_DockerThreadedObject):
     """ Create Docker images """
 
     def __init__(self, semaphore, config):
-        super(
-            DockerImages,
-            self).__init__(
-                semaphore,
-                config,
-                _BuildDockerImage)
+        _DockerThreadedObject.__init__(
+            self,
+            semaphore,
+            config,
+            _BuildDockerImage
+        )
         self._objects()
 
     def _objects(self):
@@ -389,7 +388,7 @@ class DockerImages(_DockerThreadedObject):
 class _RunDockerContainer(Thread, _Verbose):
 
     def __init__(self, semaphore, queue, name, config):
-        super(_RunDockerContainer, self).__init__()
+        Thread.__init__(self)
         self.color = Color()
         self.container = config
         self.name = name
@@ -456,7 +455,7 @@ class _RunDockerContainer(Thread, _Verbose):
 class _BuildDockerImage(Thread, _Verbose):
 
     def __init__(self, semaphore, queue, name, config):
-        super(_BuildDockerImage, self).__init__()
+        Thread.__init__(self)
         self.config = config
         self.image = dict({})
         self.name = name
