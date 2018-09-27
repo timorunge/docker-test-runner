@@ -14,9 +14,11 @@ install:
   - pip install --upgrade pip
   - pip install pylint
   - pip install flake8
+  - pip install bandit
   - pip install -r requirements.txt
 
 script:
   - pylint --exit-zero docker_test_runner.py
   - flake8 --exit-zero -v docker_test_runner.py
+  - bandit -r .
   - ./docker_test_runner.py -f docker_test_runner.travis.yml
