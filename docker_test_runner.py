@@ -33,7 +33,7 @@ import logging
 import string
 import re
 import random
-from threading import BoundedSemaphore, Thread
+from threading import BoundedSemaphore, Thread, _Verbose
 from Queue import Queue
 from time import time
 from json import dumps
@@ -337,9 +337,7 @@ class DockerContainers(_DockerThreadedObject):
                                     image)
                                 skip = True
                     if not skip:
-                        _rand = "".join(
-                            random.choice(string.ascii_letters + string.digits)
-                            for _ in range(6))
+                        _rand = random.SystemRandom().randrange(100000, 999999)
                         container = "%s_%s_%s" % (
                             image,
                             env,
@@ -354,11 +352,10 @@ class DockerContainers(_DockerThreadedObject):
                                 self.config["docker_container_volumes"]
             else:
                 LOG.debug("Create container information. No environments set.")
+                _rand = random.SystemRandom().randrange(100000, 999999)
                 container = "%s_%s" % (
                     image,
-                    "".join(
-                        random.choice(string.ascii_letters + string.digits)
-                        for _ in range(6)))
+                    _rand)
                 self.objects[container] = dict({})
                 self.objects[container]["environment"] = dict({})
                 self.objects[container]["image"] = self.images[image]["image"]
@@ -385,9 +382,10 @@ class DockerImages(_DockerThreadedObject):
             self.objects[image] = self.config
 
 
-class _RunDockerContainer(Thread):
+class _RunDockerContainer(Thread, _Verbose):
 
     def __init__(self, semaphore, queue, name, config):
+        _Verbose.__init__(self)
         Thread.__init__(self)
         self.color = Color()
         self.container = config
@@ -405,7 +403,7 @@ class _RunDockerContainer(Thread):
 
     def _run_container(self):
         start_time = time()
-        color = random.choice(self.color.colors())
+        color = random.SystemRandom().choice(self.color.colors())
         try:
             LOG.info("Starting container %s...", self.name)
             container = _docker_client().containers.run(
@@ -452,9 +450,10 @@ class _RunDockerContainer(Thread):
             raise error
 
 
-class _BuildDockerImage(Thread):
+class _BuildDockerImage(Thread, _Verbose):
 
     def __init__(self, semaphore, queue, name, config):
+        _Verbose.__init__(self)
         Thread.__init__(self)
         self.config = config
         self.image = dict({})
