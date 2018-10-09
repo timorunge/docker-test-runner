@@ -48,7 +48,7 @@ __email__ = "me@timorunge.com"
 __license__ = "BSD"
 __maintainer__ = "Timo Runge"
 __title__ = "docker_test_runner"
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 
 LOG = colorlog.getLogger(__name__)
@@ -261,9 +261,10 @@ class Configuration(object):
 
 class _DockerThreadedObject(object):
 
-    def __init__(self, semaphore, config, class_instance):
+    def __init__(self, docker_client, semaphore, config, class_instance):
         self.class_instance = class_instance
         self.config = config
+        self.docker_client = docker_client
         self.objects = dict({})
         self.queue = Queue()
         self.semaphore = semaphore
@@ -287,6 +288,7 @@ class _DockerThreadedObject(object):
         threads = list([])
         for obj, obj_config in self.objects.iteritems():
             run = self.class_instance(
+                self.docker_client,
                 self.semaphore,
                 self.queue,
                 obj,
@@ -311,9 +313,10 @@ class _DockerThreadedObject(object):
 class DockerContainers(_DockerThreadedObject):
     """ Create container configuration and give the possibility to run them """
 
-    def __init__(self, semaphore, config, images):
+    def __init__(self, docker_client, semaphore, config, images):
         _DockerThreadedObject.__init__(
             self,
+            docker_client,
             semaphore,
             config,
             _RunDockerContainer)
@@ -368,13 +371,13 @@ class DockerContainers(_DockerThreadedObject):
 class DockerImages(_DockerThreadedObject):
     """ Create Docker images """
 
-    def __init__(self, semaphore, config):
+    def __init__(self, docker_client, semaphore, config):
         _DockerThreadedObject.__init__(
             self,
+            docker_client,
             semaphore,
             config,
-            _BuildDockerImage
-        )
+            _BuildDockerImage)
         self._objects()
 
     def _objects(self):
@@ -384,11 +387,18 @@ class DockerImages(_DockerThreadedObject):
 
 class _RunDockerContainer(Thread, _Verbose):
 
-    def __init__(self, semaphore, queue, name, config):
+    def __init__(  # pylint: disable=R0913
+            self,
+            docker_client,
+            semaphore,
+            queue,
+            name,
+            config):
         _Verbose.__init__(self)
         Thread.__init__(self)
         self.color = Color()
         self.container = config
+        self.docker_client = docker_client
         self.name = name
         self.queue = queue
         self.semaphore = semaphore
@@ -406,7 +416,7 @@ class _RunDockerContainer(Thread, _Verbose):
         color = random.SystemRandom().choice(self.color.colors())
         try:
             LOG.info("Starting container %s...", self.name)
-            container = _docker_client().containers.run(
+            container = self.docker_client.containers.run(
                 self.container["image"],
                 detach=True,
                 environment=self.container["environment"],
@@ -452,10 +462,17 @@ class _RunDockerContainer(Thread, _Verbose):
 
 class _BuildDockerImage(Thread, _Verbose):
 
-    def __init__(self, semaphore, queue, name, config):
+    def __init__(  # pylint: disable=R0913
+            self,
+            docker_client,
+            semaphore,
+            queue,
+            name,
+            config):
         _Verbose.__init__(self)
         Thread.__init__(self)
         self.config = config
+        self.docker_client = docker_client
         self.image = dict({})
         self.name = name
         self.queue = queue
@@ -494,7 +511,7 @@ class _BuildDockerImage(Thread, _Verbose):
                         True)
                 _tag = "%s_%s" % (project_name, self.name)
             tag = _tag.lower()
-            image, build_logs = _docker_client().images.build(
+            image, build_logs = self.docker_client.images.build(
                 buildargs=self.config["docker_image_build_args"],
                 dockerfile=dockerfile,
                 path=self.config["docker_image_path"],
@@ -522,7 +539,9 @@ class _BuildDockerImage(Thread, _Verbose):
 
 def _docker_client():
     try:
-        return docker.from_env()
+        docker_client = docker.from_env()
+        docker_client.ping()
+        return docker_client
     except docker.errors.DockerException as error:
         raise error
 
@@ -530,7 +549,7 @@ def _docker_client():
 def _logger(log_level="INFO", disable_logging=False):
     try:
         log_level = logging.getLevelName(log_level)
-        log_format = ("%(log_color)s[%(levelname)s]"
+        log_format = ("%(log_color)s[%(levelname)s] "
                       "%(threadName)s:%(reset)s %(message)s")
         colorlog.basicConfig(level=log_level, format=log_format)
         logger = colorlog.getLogger(__name__)
@@ -640,12 +659,18 @@ def _run(args):  # pylint: disable=R0912,R0914,R0915
                 "%s expected container runs",
                 _expected["docker_container_runs"])
 
-    _docker_images = DockerImages(semaphore, config)
+    docker_client = _docker_client()
+
+    _docker_images = DockerImages(docker_client, semaphore, config)
     _docker_images.run()
     docker_images = _docker_images.get()
 
     if not args.build_only:
-        _docker_containers = DockerContainers(semaphore, config, docker_images)
+        _docker_containers = DockerContainers(
+            docker_client,
+            semaphore,
+            config,
+            docker_images)
         _docker_containers.run()
         docker_containers = _docker_containers.get()
 
