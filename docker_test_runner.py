@@ -37,7 +37,7 @@ from threading import BoundedSemaphore, Thread, _Verbose
 from Queue import Queue
 from time import time
 from json import dumps
-from yaml import load
+from yaml import safe_load
 import colorlog
 import docker
 
@@ -228,7 +228,7 @@ class Configuration(object):
                 _first_file = next(iter(_files))
                 _config_file = _first_file
             with open("%s" % (_config_file), "r") as config_file:
-                _yaml = load(config_file)
+                _yaml = safe_load(config_file)
                 self.config = SearchAndReplace(
                     "__PATH__",
                     self.path).in_dict(_yaml)

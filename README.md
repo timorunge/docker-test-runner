@@ -23,9 +23,19 @@ This role requires [Docker](https://www.docker.com), Python 2.7 and some
 additional pip packages.
 
 The required pip packages are defined in the
-[requirements.txt](requirements.txt) file and can be installed easily via
+[requirements.txt](requirements.txt) file and can be installed easily via:
 
 ```sh
+pip install -r requirements.txt
+```
+
+or inside an `virtualenv`:
+
+```sh
+pip install virtualenv
+virtualenv .virtualenv
+virtualenv -p /usr/bin/python2.7 .virtualenv
+source .virtualenv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -35,7 +45,8 @@ Install
 -------
 
 In this repository you can find an [install.sh](install.sh) script which will
-install all requirements and download the latest version of the script itself.
+install all requirements (not using `virtualenv`) and download the latest
+version of the script itself.
 
 ```sh
 curl -sSf https://raw.githubusercontent.com/timorunge/docker-test-runner/master/install.sh | sh
@@ -172,13 +183,13 @@ Tests are done with [Docker](https://www.docker.com) and the
 
 The tests are creating the following Docker images:
 
-* CentOS 7
-* Debian 9.4 (Stretch)
-* Debian 10 (Buster)
-* Ubuntu 16.04 (Xenial Xerus)
-* Ubuntu 17.10 (Artful Aardvark)
-* Ubuntu 18.04 (Bionic Beaver)
-* Ubuntu 18.10 (Cosmic Cuttlefish)
+- CentOS 7
+- Debian 9.4 (Stretch)
+- Debian 10 (Buster)
+- Ubuntu 16.04 (Xenial Xerus)
+- Ubuntu 17.10 (Artful Aardvark)
+- Ubuntu 18.04 (Bionic Beaver)
+- Ubuntu 18.10 (Cosmic Cuttlefish)
 
 Ansible is getting installed in a version which is defined as an build argument
 of the Docker file. This is set in the `docker_image_build_args` section of
@@ -200,6 +211,7 @@ like normal variables (setting not defined variables, overriding defaults etc.).
 
 License
 -------
+
 BSD
 
 Author Information
