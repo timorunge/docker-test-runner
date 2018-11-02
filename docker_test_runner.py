@@ -188,7 +188,7 @@ class Configuration(object):
         self.config = dict({})
         self.config_file = config_file
         self.config_filename = "docker_test_runner.yml"
-        self.path = os.path.dirname(os.path.abspath(__file__))
+        self.path = os.getcwd()
         self._from_file()
         self._validate()
 

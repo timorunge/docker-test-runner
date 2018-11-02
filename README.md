@@ -1,5 +1,4 @@
-docker_test_runner
-==================
+# docker_test_runner
 
 `docker_test_runner` is a Python wrapper which gives the possibility to build
 Docker images and run Docker containers from a single image with different
@@ -16,8 +15,7 @@ to complicate to archive the following goals easily:
 - A lean yml-based configuration
 - Display a final summary
 
-Requirements
-------------
+## Requirements
 
 This role requires [Docker](https://www.docker.com), Python 2.7 and some
 additional pip packages.
@@ -41,8 +39,7 @@ pip install -r requirements.txt
 
 `docker_test_runner` is tested on Linux and Mac OS and won't run on Python 3.x.
 
-Install
--------
+## Install
 
 In this repository you can find an [install.sh](install.sh) script which will
 install all requirements (not using `virtualenv`) and download the latest
@@ -52,8 +49,7 @@ version of the script itself.
 curl -sSf https://raw.githubusercontent.com/timorunge/docker-test-runner/master/install.sh | sh
 ```
 
-Configuration
--------------
+## Configuration
 
 The configuration is (hopefully) self explaining. Take a look at the
 [docker_test_runner.yml](docker_test_runner.yml) file. Which is also used
@@ -82,7 +78,7 @@ disable_logging: False
 # Build arguments (referenced also in the Dockerfiles)
 docker_image_build_args:
   ansible_role: timorunge.docker_test_runner
-  ansible_version: 2.7.0
+  ansible_version: 2.7.1
 
 # Path to the directory containing the Dockerfile(s)
 # `__PATH__` is the directory where `docker_test_runner.py` is stored.
@@ -146,8 +142,7 @@ docker_container_volumes:
     mode: ro
 ```
 
-CLI options
------------
+## CLI options
 
 ```sh
 usage: docker_test_runner.py [-h] [-f FILE] [-t THREADS] [--build-only]
@@ -171,8 +166,7 @@ optional arguments:
   -v, --version         Display version information.
 ```
 
-Testing
--------
+## Testing
 
 [![Build Status](https://travis-ci.org/timorunge/docker-test-runner.svg?branch=master)](https://travis-ci.org/timorunge/docker-test-runner)
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/timorunge/docker-test-runner.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/timorunge/docker-test-runner/alerts/)
@@ -209,12 +203,10 @@ like normal variables (setting not defined variables, overriding defaults etc.).
 ./docker_test_runner.py
 ```
 
-License
--------
+## License
 
-BSD
+[BSD 3-Clause "New" or "Revised" License](https://spdx.org/licenses/BSD-3-Clause.html)
 
-Author Information
-------------------
+## Author Information
 
 - Timo Runge

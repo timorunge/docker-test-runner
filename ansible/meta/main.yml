@@ -2,9 +2,10 @@
 
 galaxy_info:
   author: Timo Runge
+  company: N/A
   description: Simple Ansible role which shows what is possible with docker-test-runner.
   role_name: docker_test_runner
-  license: BSD
+  license: BSD-3-Clause
   min_ansible_version: 2.5.0
   platforms:
   - name: EL
