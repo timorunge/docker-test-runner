@@ -45,7 +45,7 @@ import docker
 __author__ = "Timo Runge"
 __copyright__ = "Copyright 2018, Timo Runge"
 __email__ = "me@timorunge.com"
-__license__ = "BSD"
+__license__ = "BSD 3-Clause 'New' or 'Revised' License"
 __maintainer__ = "Timo Runge"
 __title__ = "docker_test_runner"
 __version__ = "0.0.5"
