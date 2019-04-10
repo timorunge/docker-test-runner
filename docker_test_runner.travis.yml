@@ -19,7 +19,7 @@ disable_logging: False
 # Build arguments (referenced also in the Dockerfiles)
 docker_image_build_args:
   ansible_role: timorunge.docker_test_runner
-  ansible_version: 2.7.2
+  ansible_version: 2.7.9
 
 # Path to the directory containing the Dockerfile(s)
 # `__PATH__` is the directory where `docker_test_runner.py` is stored.
@@ -32,7 +32,7 @@ docker_image_path: __PATH__/docker
 # Images must be named in the following format: Dockerfile_`image_name`.
 docker_images:
   - CentOS_7
-  - Debian_9_4
+  - Debian_9
   - Debian_10
   - Ubuntu_16_04
   - Ubuntu_17_10
