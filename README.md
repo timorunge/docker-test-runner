@@ -1,3 +1,7 @@
+> **Status: Archived.**
+>
+> This repository is no longer maintained and is kept for reference only.
+
 # docker_test_runner
 
 `docker_test_runner` is a Python wrapper which gives the possibility to build
@@ -206,7 +210,3 @@ like normal variables (setting not defined variables, overriding defaults etc.).
 ## License
 
 [BSD 3-Clause "New" or "Revised" License](https://spdx.org/licenses/BSD-3-Clause.html)
-
-## Author Information
-
-- Timo Runge

@@ -1,3 +1,1 @@
 .idea
-ansible/tests/ansible.cfg
-ansible/tests/test.retry
